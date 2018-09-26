@@ -2,7 +2,7 @@
 
 First off, thanks for taking the time to contribute!
 
-The following is a set of guidelines for contributing to Event Horizon DynamoDB drivers and its packages, which are hosted in the [Seedboxtech Organization](.github/CONTRIBUTING.md) on GitHub. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
+The following is a set of guidelines for contributing to Event Horizon DynamoDB drivers and its packages, which are hosted in the [Seedboxtech Organization](CONTRIBUTING.md) on GitHub. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
 
 #### Table Of Contents
 
@@ -22,7 +22,7 @@ The following is a set of guidelines for contributing to Event Horizon DynamoDB 
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the [Event Horizon Code of Conduct](.github/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [looplab@github.com](mailto:eventhorizon@looplab.se).
+This project and everyone participating in it is governed by the [Event Horizon Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [looplab@github.com](mailto:eventhorizon@looplab.se).
 
 ## How Can I Contribute?
 
@@ -39,7 +39,7 @@ If you find a bug report it by creating a new Github issue.
 
 ### Pull Requests
 
-* Fill in [the required template](.github/PULL_REQUEST_TEMPLATE.md)
+* Fill in [the required template](PULL_REQUEST_TEMPLATE.md)
 * Follow the [Golang Styleguide](#golang-styleguide)
 * Document new code based on the [Documentation Styleguide](#documentation-styleguide)
 * End all files with a newline
