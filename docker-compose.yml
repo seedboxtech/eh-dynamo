@@ -1,0 +1,17 @@
+version: "3.4"
+
+services:
+  golang:
+    image: golang:stretch
+    depends_on:
+      - dynamodb
+    environment:
+      DYNAMODB_HOST: "dynamodb:8000"
+    volumes:
+      - .:/eventhorizon
+    working_dir: /eventhorizon
+
+  dynamodb:
+    image: peopleperhour/dynamodb:latest
+    ports:
+      - "8000:8000"
