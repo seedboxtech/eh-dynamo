@@ -1,3 +1,9 @@
+[![Build Status](https://travis-ci.com/seedboxtech/eh-dynamo.svg?branch=master)](https://travis-ci.com/seedboxtech/eh-dynamo)
+[![Coverage Status](https://img.shields.io/coveralls/seedboxtech/eh-dynamo.svg)](https://coveralls.io/r/seedboxtech/eh-dynamo)
+[![GoDoc](https://godoc.org/github.com/seedboxtech/eh-dynamo?status.svg)](https://godoc.org/github.com/seedboxtech/eh-dynamo)
+[![Go Report Card](https://goreportcard.com/badge/seedboxtech/eh-dynamo)](https://goreportcard.com/report/seedboxtech/eh-dynamo)
+
+
 # Event Horizon Dynamo
 
 Event Horizon Dynamo contains the DynamoDB driver for [Event Horizon] a CQRS/ES toolkit for Go.

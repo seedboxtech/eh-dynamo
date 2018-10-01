@@ -1,0 +1,3 @@
+*.coverprofile
+vendor/
+.env
