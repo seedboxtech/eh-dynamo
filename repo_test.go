@@ -153,8 +153,25 @@ func (suite *RepoTestSuite) TestNoFactoryFn() {
 	suite.repo.SetEntityFactory(nil)
 	result, err := suite.repo.Find(context.Background(), eh.NewUUID())
 	if rrErr, ok := err.(eh.RepoError); !ok || rrErr.Err != ErrModelNotSet || result != nil {
-		suite.T().Fatal("an error should have occured:", err)
+		suite.T().Fatal("an error should have occurred")
 	}
+
+	results, err := suite.repo.FindAll(context.Background())
+	if rrErr, ok := err.(eh.RepoError); !ok || rrErr.Err != ErrModelNotSet || results != nil {
+		suite.T().Fatal("an error should have occurred")
+	}
+}
+
+func (suite *RepoTestSuite) TestEmptyUUID() {
+	testModel := &TestModel{Content: "test"}
+
+	err := suite.repo.Save(context.Background(), testModel)
+	assert.EqualError(suite.T(), err, "could not save entity: missing entity ID (default)")
+}
+
+func (suite *RepoTestSuite) TestParent() {
+	result := suite.repo.Parent()
+	assert.Nil(suite.T(), result)
 }
 
 type TestModel struct {
