@@ -42,9 +42,7 @@ func TestEventStore(t *testing.T) {
 	}
 
 	config := &EventStoreConfig{
-		TablePrefix: "eventhorizonTest_" + eh.NewUUID().String(),
-		Region:      "eu-west-1",
-		Endpoint:    url,
+		Endpoint: url,
 	}
 	store, err := NewEventStore(config)
 	if err != nil {
@@ -75,7 +73,6 @@ func TestEventStore(t *testing.T) {
 	}()
 
 	// Run the actual test suite.
-
 	t.Log("event store with default namespace")
 	eventstore.AcceptanceTest(t, context.Background(), store)
 
