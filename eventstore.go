@@ -73,13 +73,21 @@ func NewEventStore(config *EventStoreConfig) (*EventStore, error) {
 	}
 
 	session, err := session.NewSession(awsConfig)
+	if err != nil {
+		return nil, err
+	}
 	db := dynamo.New(session)
+	return NewEventStoreWithDB(config, db), nil
+}
+
+// NewEventStoreWithDB creates a new EventStore with DB
+func NewEventStoreWithDB(config *EventStoreConfig, db *dynamo.DB) *EventStore {
 	s := &EventStore{
 		service: db,
 		config:  config,
 	}
 
-	return s, err
+	return s
 }
 
 // Save implements the Save method of the eventhorizon.EventStore interface.
@@ -95,7 +103,7 @@ func (s *EventStore) Save(ctx context.Context, events []eh.Event, originalVersio
 	// original aggregate version.
 	aggregateID := events[0].AggregateID()
 	version := originalVersion
-	table := s.service.Table(s.tableName(ctx))
+	table := s.service.Table(s.TableName(ctx))
 	for _, event := range events {
 		// Only accept events belonging to the same aggregate.
 		if event.AggregateID() != aggregateID {
@@ -145,7 +153,7 @@ func (s *EventStore) Save(ctx context.Context, events []eh.Event, originalVersio
 
 // Load implements the Load method of the eventhorizon.EventStore interface.
 func (s *EventStore) Load(ctx context.Context, id eh.UUID) ([]eh.Event, error) {
-	table := s.service.Table(s.tableName(ctx))
+	table := s.service.Table(s.TableName(ctx))
 
 	var dbEvents []dbEvent
 	err := table.Get("AggregateID", id.String()).Consistent(true).All(&dbEvents)
@@ -185,7 +193,7 @@ func (s *EventStore) Load(ctx context.Context, id eh.UUID) ([]eh.Event, error) {
 
 // Replace implements the Replace method of the eventhorizon.EventStore interface.
 func (s *EventStore) Replace(ctx context.Context, event eh.Event) error {
-	table := s.service.Table(s.tableName(ctx))
+	table := s.service.Table(s.TableName(ctx))
 
 	count, err := table.Get("AggregateID", event.AggregateID().String()).Consistent(true).Count()
 	if err != nil {
@@ -220,7 +228,7 @@ func (s *EventStore) Replace(ctx context.Context, event eh.Event) error {
 
 // RenameEvent implements the RenameEvent method of the eventhorizon.EventStore interface.
 func (s *EventStore) RenameEvent(ctx context.Context, from, to eh.EventType) error {
-	table := s.service.Table(s.tableName(ctx))
+	table := s.service.Table(s.TableName(ctx))
 
 	var dbEvents []dbEvent
 	err := table.Scan().Filter("EventType = ?", from).Consistent(true).All(&dbEvents)
@@ -247,12 +255,12 @@ func (s *EventStore) RenameEvent(ctx context.Context, from, to eh.EventType) err
 
 // CreateTable creates the table if it is not already existing and correct.
 func (s *EventStore) CreateTable(ctx context.Context) error {
-	if err := s.service.CreateTable(s.tableName(ctx), dbEvent{}).Run(); err != nil {
+	if err := s.service.CreateTable(s.TableName(ctx), dbEvent{}).Run(); err != nil {
 		return err
 	}
 
 	describeParams := &dynamodb.DescribeTableInput{
-		TableName: aws.String(s.tableName(ctx)),
+		TableName: aws.String(s.TableName(ctx)),
 	}
 	if err := s.service.Client().WaitUntilTableExists(describeParams); err != nil {
 		return err
@@ -263,7 +271,7 @@ func (s *EventStore) CreateTable(ctx context.Context) error {
 
 // DeleteTable deletes the event table.
 func (s *EventStore) DeleteTable(ctx context.Context) error {
-	table := s.service.Table(s.tableName(ctx))
+	table := s.service.Table(s.TableName(ctx))
 	err := table.DeleteTable().Run()
 	if err != nil {
 		if err, ok := err.(awserr.RequestFailure); ok && err.Code() == "ResourceNotFoundException" {
@@ -273,7 +281,7 @@ func (s *EventStore) DeleteTable(ctx context.Context) error {
 	}
 
 	describeParams := &dynamodb.DescribeTableInput{
-		TableName: aws.String(s.tableName(ctx)),
+		TableName: aws.String(s.TableName(ctx)),
 	}
 	if err := s.service.Client().WaitUntilTableNotExists(describeParams); err != nil {
 		return err
@@ -282,9 +290,9 @@ func (s *EventStore) DeleteTable(ctx context.Context) error {
 	return nil
 }
 
-// tableName appends the namespace, if one is set, to the table prefix to
+// TableName appends the namespace, if one is set, to the table prefix to
 // get the name of the table to use.
-func (s *EventStore) tableName(ctx context.Context) string {
+func (s *EventStore) TableName(ctx context.Context) string {
 	ns := eh.NamespaceFromContext(ctx)
 	return s.config.TablePrefix + "_" + ns
 }
