@@ -136,6 +136,22 @@ func (suite *RepoTestSuite) TestSaveAndFindAll() {
 	assert.Equal(suite.T(), 2, len(results))
 }
 
+func (suite *RepoTestSuite) TestSaveAndFindWithFilter() {
+	testModel := &TestModel{ID: uuid.New(), Content: "test", FilterableID: 123}
+	testModel2 := &TestModel{ID: uuid.New(), Content: "test2", FilterableID: 123}
+	testModel3 := &TestModel{ID: uuid.New(), Content: "test3", FilterableID: 456}
+
+	err := suite.repo.Save(context.Background(), testModel)
+	suite.repo.Save(context.Background(), testModel2)
+	suite.repo.Save(context.Background(), testModel3)
+
+	results, err := suite.repo.FindWithFilter(context.Background(), "FilterableID = ?", 123)
+	if err != nil {
+		suite.T().Fatal("error finding entity:", err)
+	}
+	assert.Equal(suite.T(), 2, len(results))
+}
+
 func (suite *RepoTestSuite) TestRemove() {
 	testModel := &TestModel{ID: uuid.New(), Content: "test"}
 
@@ -177,8 +193,9 @@ func (suite *RepoTestSuite) TestParent() {
 }
 
 type TestModel struct {
-	ID      uuid.UUID `dynamo:",hash"`
-	Content string
+	ID           uuid.UUID `dynamo:",hash"`
+	Content      string
+	FilterableID int
 }
 
 // EntityID implements the EntityID method of the eventhorizon.Entity interface.

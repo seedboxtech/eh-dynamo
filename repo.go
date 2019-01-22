@@ -124,6 +124,28 @@ func (r *Repo) FindAll(ctx context.Context) ([]eh.Entity, error) {
 	return result, nil
 }
 
+// FindWithFilter allows to find entities with a filter
+func (r *Repo) FindWithFilter(ctx context.Context, expr string, args ...interface{}) ([]eh.Entity, error) {
+	if r.factoryFn == nil {
+		return nil, eh.RepoError{
+			Err:       ErrModelNotSet,
+			Namespace: eh.NamespaceFromContext(ctx),
+		}
+	}
+
+	table := r.service.Table(r.config.TableName)
+
+	iter := table.Scan().Filter(expr, args...).Consistent(true).Iter()
+	result := []eh.Entity{}
+	entity := r.factoryFn()
+	for iter.Next(entity) {
+		result = append(result, entity)
+		entity = r.factoryFn()
+	}
+
+	return result, nil
+}
+
 // Save implements the Save method of the eventhorizon.WriteRepo interface.
 func (r *Repo) Save(ctx context.Context, entity eh.Entity) error {
 	table := r.service.Table(r.config.TableName)
