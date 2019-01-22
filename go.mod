@@ -1,8 +1,12 @@
 module github.com/seedboxtech/eh-dynamo
 
 require (
-	github.com/aws/aws-sdk-go v1.15.42
-	github.com/guregu/dynamo v1.0.0
-	github.com/looplab/eventhorizon v0.4.0
-	github.com/stretchr/testify v1.2.2
+	github.com/aws/aws-sdk-go v1.16.23
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/gofrs/uuid v3.2.0+incompatible // indirect
+	github.com/google/uuid v1.1.0
+	github.com/guregu/dynamo v1.1.0
+	github.com/looplab/eventhorizon v0.5.0
+	github.com/stretchr/testify v1.3.0
+	golang.org/x/net v0.0.0-20190119204137-ed066c81e75e // indirect
 )

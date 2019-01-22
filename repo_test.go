@@ -19,6 +19,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 
@@ -86,7 +88,7 @@ func (suite *RepoTestSuite) getRepoConfig() *RepoConfig {
 	}
 
 	return &RepoConfig{
-		TableName: "eventhorizonTest_" + eh.NewUUID().String(),
+		TableName: "eventhorizonTest_" + uuid.New().String(),
 		Endpoint:  "http://" + url,
 	}
 }
@@ -106,7 +108,7 @@ func (suite *RepoTestSuite) AfterTest(suiteName, testName string) {
 }
 
 func (suite *RepoTestSuite) TestSaveAndFind() {
-	testModel := &TestModel{ID: eh.NewUUID(), Content: "test"}
+	testModel := &TestModel{ID: uuid.New(), Content: "test"}
 
 	err := suite.repo.Save(context.Background(), testModel)
 	if err != nil {
@@ -121,8 +123,8 @@ func (suite *RepoTestSuite) TestSaveAndFind() {
 }
 
 func (suite *RepoTestSuite) TestSaveAndFindAll() {
-	testModel := &TestModel{ID: eh.NewUUID(), Content: "test"}
-	testModel2 := &TestModel{ID: eh.NewUUID(), Content: "test2"}
+	testModel := &TestModel{ID: uuid.New(), Content: "test"}
+	testModel2 := &TestModel{ID: uuid.New(), Content: "test2"}
 
 	err := suite.repo.Save(context.Background(), testModel)
 	suite.repo.Save(context.Background(), testModel2)
@@ -134,8 +136,24 @@ func (suite *RepoTestSuite) TestSaveAndFindAll() {
 	assert.Equal(suite.T(), 2, len(results))
 }
 
+func (suite *RepoTestSuite) TestSaveAndFindWithFilter() {
+	testModel := &TestModel{ID: uuid.New(), Content: "test", FilterableID: 123}
+	testModel2 := &TestModel{ID: uuid.New(), Content: "test2", FilterableID: 123}
+	testModel3 := &TestModel{ID: uuid.New(), Content: "test3", FilterableID: 456}
+
+	err := suite.repo.Save(context.Background(), testModel)
+	suite.repo.Save(context.Background(), testModel2)
+	suite.repo.Save(context.Background(), testModel3)
+
+	results, err := suite.repo.FindWithFilter(context.Background(), "FilterableID = ?", 123)
+	if err != nil {
+		suite.T().Fatal("error finding entity:", err)
+	}
+	assert.Equal(suite.T(), 2, len(results))
+}
+
 func (suite *RepoTestSuite) TestRemove() {
-	testModel := &TestModel{ID: eh.NewUUID(), Content: "test"}
+	testModel := &TestModel{ID: uuid.New(), Content: "test"}
 
 	suite.repo.Save(context.Background(), testModel)
 	err := suite.repo.Remove(context.Background(), testModel.ID)
@@ -151,7 +169,7 @@ func (suite *RepoTestSuite) TestRemove() {
 
 func (suite *RepoTestSuite) TestNoFactoryFn() {
 	suite.repo.SetEntityFactory(nil)
-	result, err := suite.repo.Find(context.Background(), eh.NewUUID())
+	result, err := suite.repo.Find(context.Background(), uuid.New())
 	if rrErr, ok := err.(eh.RepoError); !ok || rrErr.Err != ErrModelNotSet || result != nil {
 		suite.T().Fatal("an error should have occurred")
 	}
@@ -175,12 +193,13 @@ func (suite *RepoTestSuite) TestParent() {
 }
 
 type TestModel struct {
-	ID      eh.UUID `dynamo:",hash"`
-	Content string
+	ID           uuid.UUID `dynamo:",hash"`
+	Content      string
+	FilterableID int
 }
 
 // EntityID implements the EntityID method of the eventhorizon.Entity interface.
-func (m *TestModel) EntityID() eh.UUID {
+func (m *TestModel) EntityID() uuid.UUID {
 	return m.ID
 }
 
