@@ -20,8 +20,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/google/uuid"
 	"github.com/guregu/dynamo"
-
 	eh "github.com/looplab/eventhorizon"
 )
 
@@ -78,7 +78,7 @@ func (r *Repo) Parent() eh.ReadRepo {
 }
 
 // Find implements the Find method of the eventhorizon.ReadRepo interface.
-func (r *Repo) Find(ctx context.Context, id eh.UUID) (eh.Entity, error) {
+func (r *Repo) Find(ctx context.Context, id uuid.UUID) (eh.Entity, error) {
 	if r.factoryFn == nil {
 		return nil, eh.RepoError{
 			Err:       ErrModelNotSet,
@@ -128,7 +128,7 @@ func (r *Repo) FindAll(ctx context.Context) ([]eh.Entity, error) {
 func (r *Repo) Save(ctx context.Context, entity eh.Entity) error {
 	table := r.service.Table(r.config.TableName)
 
-	if entity.EntityID() == eh.UUID("") {
+	if entity.EntityID() == uuid.Nil {
 		return eh.RepoError{
 			Err:       eh.ErrCouldNotSaveEntity,
 			BaseErr:   eh.ErrMissingEntityID,
@@ -148,7 +148,7 @@ func (r *Repo) Save(ctx context.Context, entity eh.Entity) error {
 }
 
 // Remove implements the Remove method of the eventhorizon.WriteRepo interface.
-func (r *Repo) Remove(ctx context.Context, id eh.UUID) error {
+func (r *Repo) Remove(ctx context.Context, id uuid.UUID) error {
 	table := r.service.Table(r.config.TableName)
 
 	if err := table.Delete("ID", id.String()).Run(); err != nil {

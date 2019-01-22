@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/google/uuid"
 	"github.com/guregu/dynamo"
 	eh "github.com/looplab/eventhorizon"
 )
@@ -152,7 +153,7 @@ func (s *EventStore) Save(ctx context.Context, events []eh.Event, originalVersio
 }
 
 // Load implements the Load method of the eventhorizon.EventStore interface.
-func (s *EventStore) Load(ctx context.Context, id eh.UUID) ([]eh.Event, error) {
+func (s *EventStore) Load(ctx context.Context, id uuid.UUID) ([]eh.Event, error) {
 	table := s.service.Table(s.TableName(ctx))
 
 	var dbEvents []dbEvent
@@ -300,8 +301,8 @@ func (s *EventStore) TableName(ctx context.Context) string {
 // dbEvent is the internal event record for the DynamoDB event store used
 // to save and load events from the DB.
 type dbEvent struct {
-	AggregateID eh.UUID `dynamo:",hash"`
-	Version     int     `dynamo:",range"`
+	AggregateID uuid.UUID `dynamo:",hash"`
+	Version     int       `dynamo:",range"`
 
 	EventType     eh.EventType
 	RawData       map[string]*dynamodb.AttributeValue
@@ -363,8 +364,8 @@ func (e event) AggregateType() eh.AggregateType {
 }
 
 // AggregateID implements the AggregateID method of the eventhorizon.Event interface.
-func (e event) AggregateID() eh.UUID {
-	return eh.UUID(e.dbEvent.AggregateID)
+func (e event) AggregateID() uuid.UUID {
+	return uuid.UUID(e.dbEvent.AggregateID)
 }
 
 // Version implements the Version method of the eventhorizon.Event interface.
