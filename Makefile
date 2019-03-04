@@ -1,4 +1,4 @@
-default: services test
+default: test_docker
 
 test:
 	go test ./...
@@ -12,7 +12,11 @@ cover:
 	go list -f '{{if len .TestGoFiles}}"go test -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}}"{{end}}' ./... | xargs -L 1 sh -c
 .PHONY: cover
 
-publish_cover: cover
+cover_docker:
+	docker-compose run --rm golang make cover
+.PHONY: cover_docker
+
+publish_cover: cover_docker
 	go get -d golang.org/x/tools/cmd/cover
 	go get github.com/modocache/gover
 	go get github.com/mattn/goveralls

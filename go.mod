@@ -8,5 +8,5 @@ require (
 	github.com/guregu/dynamo v1.1.0
 	github.com/looplab/eventhorizon v0.5.0
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/net v0.0.0-20190119204137-ed066c81e75e // indirect
+	golang.org/x/net v0.0.0-20190213061140-3a22650c66bd // indirect
 )
