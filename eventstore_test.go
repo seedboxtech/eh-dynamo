@@ -106,6 +106,23 @@ func (suite *EventStoreTestSuite) TestLoadAll() {
 	}
 }
 
+// TestSaveInvalidAggregateId will save an aggregate with an invalid event aggregate ID
+func (suite *EventStoreTestSuite) TestSaveInvalidAggregateId() {
+	id, _ := uuid.Parse("c1138e5f-f6fb-4dd0-8e79-255c6c8d3756")
+	id2, _ := uuid.Parse("c1138e5f-f6fb-4dd0-8e79-zzzzzzzzzz")
+	timestamp := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+
+	expectedEvents := []eh.Event{
+		eh.NewEventForAggregate(mocks.EventType, &mocks.EventData{Content: "event1"},
+			timestamp, mocks.AggregateType, id, 1),
+		eh.NewEventForAggregate(mocks.EventType, &mocks.EventData{Content: "event1"},
+			timestamp, mocks.AggregateType, id2, 1),
+	}
+
+	err := suite.store.Save(context.Background(), expectedEvents, 0)
+	assert.EqualError(suite.T(), err, "invalid event (default)")
+}
+
 // TestEventStoreTestSuite starts the test suite
 func TestEventStoreTestSuite(t *testing.T) {
 	suite.Run(t, new(EventStoreTestSuite))
