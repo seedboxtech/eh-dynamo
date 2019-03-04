@@ -18,67 +18,95 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/looplab/eventhorizon/mocks"
+
+	"github.com/looplab/eventhorizon/eventstore"
 
 	eh "github.com/looplab/eventhorizon"
-	"github.com/looplab/eventhorizon/eventstore"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func TestEventStore(t *testing.T) {
-	// Local DynamoDb testing with Docker
-	url := os.Getenv("DYNAMODB_HOST")
-	if url == "" {
-		url = "localhost:8000"
-	}
-	url = "http://" + url
+type EventStoreTestSuite struct {
+	suite.Suite
+	ctx   context.Context
+	store *EventStore
+}
 
-	// These must be set for testing, even when using the mocked server.
-	awsAccessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
-	if awsAccessKeyID == "" {
-		os.Setenv("AWS_ACCESS_KEY_ID", "fakeMyKeyId")
-	}
-	awsSecretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-	if awsSecretAccessKey == "" {
-		os.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+// SetupTestSuite will create the store and dynamo table
+func (suite *EventStoreTestSuite) SetupTest() {
+	config := &EventStoreConfig{Endpoint: os.Getenv("DYNAMODB_HOST")}
+
+	var err error
+	suite.store, err = NewEventStore(config)
+	assert.Nil(suite.T(), err, "there should be no error")
+	assert.NotNil(suite.T(), suite.store, "there should be a store")
+
+	suite.ctx = eh.NewContextWithNamespace(context.Background(), "ns")
+
+	assert.Nil(suite.T(), suite.store.CreateTable(context.Background()), "could not create table")
+	assert.Nil(suite.T(), suite.store.CreateTable(suite.ctx), "could not create table")
+}
+
+// TearDownTestSuite will delete the dynamo table
+func (suite *EventStoreTestSuite) TearDownTest() {
+	assert.Nil(suite.T(), suite.store.DeleteTable(context.Background()), "could not delete table")
+	assert.Nil(suite.T(), suite.store.DeleteTable(suite.ctx), "could not delete table")
+}
+
+// TestEventStore will run all the acceptance tests for event stores
+func (suite *EventStoreTestSuite) TestEventStore() {
+	suite.T().Log("event store with default namespace")
+	eventstore.AcceptanceTest(suite.T(), context.Background(), suite.store)
+
+	suite.T().Log("event store with other namespace")
+	eventstore.AcceptanceTest(suite.T(), suite.ctx, suite.store)
+
+	suite.T().Log("event store maintainer")
+	eventstore.MaintainerAcceptanceTest(suite.T(), context.Background(), suite.store)
+}
+
+// TestLoadAll will save a bunch of events and try to load them all from the event store
+func (suite *EventStoreTestSuite) TestLoadAll() {
+	events, err := suite.store.LoadAll(context.Background())
+	assert.Nil(suite.T(), err)
+
+	id, _ := uuid.Parse("c1138e5f-f6fb-4dd0-8e79-255c6c8d3756")
+	timestamp := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+
+	expectedEvents := []eh.Event{
+		eh.NewEventForAggregate(mocks.EventType, &mocks.EventData{Content: "event1"},
+			timestamp, mocks.AggregateType, id, 1),
+		eh.NewEventForAggregate(mocks.EventType, &mocks.EventData{Content: "event2"},
+			timestamp, mocks.AggregateType, id, 2),
+		eh.NewEventForAggregate(mocks.EventOtherType, nil, timestamp,
+			mocks.AggregateType, id, 3),
+		eh.NewEventForAggregate(mocks.EventOtherType, nil, timestamp,
+			mocks.AggregateType, id, 4),
+		eh.NewEventForAggregate(mocks.EventOtherType, nil, timestamp,
+			mocks.AggregateType, id, 5),
+		eh.NewEventForAggregate(mocks.EventOtherType, nil, timestamp,
+			mocks.AggregateType, id, 6),
 	}
 
-	config := &EventStoreConfig{
-		Endpoint: url,
-	}
-	store, err := NewEventStore(config)
-	if err != nil {
-		t.Fatal("there should be no error:", err)
-	}
-	if store == nil {
-		t.Fatal("there should be a store")
-	}
+	_ = suite.store.Save(context.Background(), expectedEvents, 0)
 
-	ctx := eh.NewContextWithNamespace(context.Background(), "ns")
-
-	t.Log("creating tables for:", config.TablePrefix)
-	if err := store.CreateTable(context.Background()); err != nil {
-		t.Fatal("could not create table:", err)
-	}
-	if err := store.CreateTable(ctx); err != nil {
-		t.Fatal("could not create table:", err)
-	}
-
-	defer func() {
-		t.Log("deleting tables for:", config.TablePrefix)
-		if err := store.DeleteTable(context.Background()); err != nil {
-			t.Fatal("could not delete table: ", err)
+	for i, event := range events {
+		if err := mocks.CompareEvents(event, expectedEvents[i]); err != nil {
+			suite.T().Error("the event was incorrect:", err)
 		}
-		if err := store.DeleteTable(ctx); err != nil {
-			t.Fatal("could not delete table: ", err)
+		if event.Version() != i+1 {
+			suite.T().Error("the event version should be correct:", event, event.Version())
 		}
-	}()
+	}
+}
 
-	// Run the actual test suite.
-	t.Log("event store with default namespace")
-	eventstore.AcceptanceTest(t, context.Background(), store)
-
-	t.Log("event store with other namespace")
-	eventstore.AcceptanceTest(t, ctx, store)
-
-	t.Log("event store maintainer")
-	eventstore.MaintainerAcceptanceTest(t, context.Background(), store)
+// TestEventStoreTestSuite starts the test suite
+func TestEventStoreTestSuite(t *testing.T) {
+	suite.Run(t, new(EventStoreTestSuite))
 }

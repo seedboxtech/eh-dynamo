@@ -6,12 +6,14 @@ services:
     depends_on:
       - dynamodb
     environment:
-      DYNAMODB_HOST: "dynamodb:8000"
+      DYNAMODB_HOST: "http://dynamodb:8000"
+      AWS_ACCESS_KEY_ID: "fakeKeyId"
+      AWS_SECRET_ACCESS_KEY: "fakeSecret"
     volumes:
       - .:/eventhorizon
     working_dir: /eventhorizon
 
   dynamodb:
-    image: peopleperhour/dynamodb:latest
+    image: amazon/dynamodb-local:latest
     ports:
       - "8000:8000"

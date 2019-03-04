@@ -51,15 +51,6 @@ func (suite *RepoTestSuite) SetupSuite() {
 }
 
 func (suite *RepoTestSuite) getDynamoDB(conf *RepoConfig) *dynamo.DB {
-	// These must be set for testing, even when using the mocked server.
-	awsAccessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
-	if awsAccessKeyID == "" {
-		os.Setenv("AWS_ACCESS_KEY_ID", "fakeMyKeyIds")
-	}
-	awsSecretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-	if awsSecretAccessKey == "" {
-		os.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
-	}
 	awsConf := &aws.Config{
 		Region:   aws.String("us-east-1"),
 		Endpoint: aws.String(conf.Endpoint),
@@ -81,15 +72,9 @@ func (suite *RepoTestSuite) getRepo(conf *RepoConfig) *Repo {
 }
 
 func (suite *RepoTestSuite) getRepoConfig() *RepoConfig {
-	// Local DynamoDb testing with Docker
-	url := os.Getenv("DYNAMODB_HOST")
-	if url == "" {
-		url = "localhost:8000"
-	}
-
 	return &RepoConfig{
 		TableName: "eventhorizonTest_" + uuid.New().String(),
-		Endpoint:  "http://" + url,
+		Endpoint:  os.Getenv("DYNAMODB_HOST"),
 	}
 }
 func (suite *RepoTestSuite) BeforeTest(suiteName, testName string) {
