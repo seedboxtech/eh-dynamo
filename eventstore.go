@@ -156,7 +156,7 @@ func (s *EventStore) Save(ctx context.Context, events []eh.Event, originalVersio
 func (s *EventStore) Load(ctx context.Context, id uuid.UUID) ([]eh.Event, error) {
 	table := s.service.Table(s.TableName(ctx))
 
-	var dbEvents []dbEvent
+	var dbEvents []*dbEvent
 	err := table.Get("AggregateID", id.String()).Consistent(true).All(&dbEvents)
 	if err, ok := err.(awserr.RequestFailure); ok && err.Code() == "ResourceNotFoundException" {
 		return []eh.Event{}, nil
@@ -175,7 +175,7 @@ func (s *EventStore) Load(ctx context.Context, id uuid.UUID) ([]eh.Event, error)
 func (s *EventStore) LoadAll(ctx context.Context) ([]eh.Event, error) {
 	table := s.service.Table(s.TableName(ctx))
 
-	var dbEvents []dbEvent
+	var dbEvents []*dbEvent
 	err := table.Scan().Consistent(true).All(&dbEvents)
 	if err != nil {
 		return nil, eh.EventStoreError{
@@ -188,7 +188,7 @@ func (s *EventStore) LoadAll(ctx context.Context) ([]eh.Event, error) {
 	return s.buildEvents(ctx, dbEvents)
 }
 
-func (s *EventStore) buildEvents(ctx context.Context, dbEvents []dbEvent) ([]eh.Event, error) {
+func (s *EventStore) buildEvents(ctx context.Context, dbEvents []*dbEvent) ([]eh.Event, error) {
 	events := make([]eh.Event, len(dbEvents))
 	for i, dbEvent := range dbEvents {
 		// Create an event of the correct type.
@@ -361,7 +361,7 @@ func newDBEvent(ctx context.Context, event eh.Event) (*dbEvent, error) {
 // event is the private implementation of the eventhorizon.Event
 // interface for a DynamoDB event store.
 type event struct {
-	dbEvent
+	*dbEvent
 }
 
 // EventType implements the EventType method of the eventhorizon.Event interface.
