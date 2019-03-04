@@ -73,9 +73,6 @@ func (suite *EventStoreTestSuite) TestEventStore() {
 
 // TestLoadAll will save a bunch of events and try to load them all from the event store
 func (suite *EventStoreTestSuite) TestLoadAll() {
-	events, err := suite.store.LoadAll(context.Background())
-	assert.Nil(suite.T(), err)
-
 	id, _ := uuid.Parse("c1138e5f-f6fb-4dd0-8e79-255c6c8d3756")
 	timestamp := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 
@@ -84,17 +81,13 @@ func (suite *EventStoreTestSuite) TestLoadAll() {
 			timestamp, mocks.AggregateType, id, 1),
 		eh.NewEventForAggregate(mocks.EventType, &mocks.EventData{Content: "event2"},
 			timestamp, mocks.AggregateType, id, 2),
-		eh.NewEventForAggregate(mocks.EventOtherType, nil, timestamp,
-			mocks.AggregateType, id, 3),
-		eh.NewEventForAggregate(mocks.EventOtherType, nil, timestamp,
-			mocks.AggregateType, id, 4),
-		eh.NewEventForAggregate(mocks.EventOtherType, nil, timestamp,
-			mocks.AggregateType, id, 5),
-		eh.NewEventForAggregate(mocks.EventOtherType, nil, timestamp,
-			mocks.AggregateType, id, 6),
 	}
 
 	_ = suite.store.Save(context.Background(), expectedEvents, 0)
+
+	events, err := suite.store.LoadAll(context.Background())
+	assert.Nil(suite.T(), err)
+	assert.Len(suite.T(), events, 2)
 
 	for i, event := range events {
 		if err := mocks.CompareEvents(event, expectedEvents[i]); err != nil {
