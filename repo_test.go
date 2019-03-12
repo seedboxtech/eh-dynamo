@@ -23,7 +23,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/stretchr/testify/assert"
@@ -40,14 +40,14 @@ type RepoTestSuite struct {
 	repo *Repo
 }
 
-// SetupSuite will be run by testify once, at the very
-// start of the testing suite, before any tests are run.
+// SetupSuite will be run once, at the very start of the testing suite
 func (suite *RepoTestSuite) SetupSuite() {
 	conf := suite.getRepoConfig()
 	db := suite.getDynamoDB(conf)
 
 	suite.conf = conf
 	suite.db = db
+	suite.repo = suite.getRepo(suite.conf)
 }
 
 func (suite *RepoTestSuite) getDynamoDB(conf *RepoConfig) *dynamo.DB {
@@ -63,11 +63,16 @@ func (suite *RepoTestSuite) getDynamoDB(conf *RepoConfig) *dynamo.DB {
 }
 
 func (suite *RepoTestSuite) getRepo(conf *RepoConfig) *Repo {
+	testModel := &TestModel{}
+
+	if err := suite.db.CreateTable(suite.conf.TableName, testModel).OnDemand(true).Run(); err != nil {
+		suite.T().Fatal("could not create table:", err)
+	}
+
 	repo, err := NewRepo(conf)
 	if err != nil || repo == nil {
 		suite.T().Fatal("error creating repo:", err)
 	}
-	repo.SetEntityFactory(func() eh.Entity { return &TestModel{} })
 	return repo
 }
 
@@ -77,18 +82,16 @@ func (suite *RepoTestSuite) getRepoConfig() *RepoConfig {
 		Endpoint:  os.Getenv("DYNAMODB_HOST"),
 	}
 }
-func (suite *RepoTestSuite) BeforeTest(suiteName, testName string) {
-	testModel := &TestModel{}
-	if err := suite.db.CreateTable(suite.conf.TableName, testModel).Run(); err != nil {
-		suite.T().Fatal("could not create table:", err)
-	}
 
-	suite.repo = suite.getRepo(suite.conf)
+func (suite *RepoTestSuite) BeforeTest(suiteName, testName string) {
+	suite.repo.SetEntityFactory(func() eh.Entity { return &TestModel{} })
 }
 
 func (suite *RepoTestSuite) AfterTest(suiteName, testName string) {
-	if err := suite.db.Table(suite.conf.TableName).DeleteTable().Run(); err != nil {
-		suite.T().Fatal("could not delete table: ", err)
+	// Emptying the table
+	entities, _ := suite.repo.FindAll(context.Background())
+	for _, entity := range entities {
+		_ = suite.repo.Remove(context.Background(), entity.EntityID())
 	}
 }
 
@@ -108,11 +111,8 @@ func (suite *RepoTestSuite) TestSaveAndFind() {
 }
 
 func (suite *RepoTestSuite) TestSaveAndFindAll() {
-	testModel := &TestModel{ID: uuid.New(), Content: "test"}
-	testModel2 := &TestModel{ID: uuid.New(), Content: "test2"}
-
-	err := suite.repo.Save(context.Background(), testModel)
-	suite.repo.Save(context.Background(), testModel2)
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "test"})
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "test2"})
 
 	results, err := suite.repo.FindAll(context.Background())
 	if err != nil {
@@ -122,25 +122,57 @@ func (suite *RepoTestSuite) TestSaveAndFindAll() {
 }
 
 func (suite *RepoTestSuite) TestSaveAndFindWithFilter() {
-	testModel := &TestModel{ID: uuid.New(), Content: "test", FilterableID: 123}
-	testModel2 := &TestModel{ID: uuid.New(), Content: "test2", FilterableID: 123}
-	testModel3 := &TestModel{ID: uuid.New(), Content: "test3", FilterableID: 456}
-
-	err := suite.repo.Save(context.Background(), testModel)
-	suite.repo.Save(context.Background(), testModel2)
-	suite.repo.Save(context.Background(), testModel3)
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "test", FilterableID: 123})
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "test2", FilterableID: 123})
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "test3", FilterableID: 456})
 
 	results, err := suite.repo.FindWithFilter(context.Background(), "FilterableID = ?", 123)
 	if err != nil {
-		suite.T().Fatal("error finding entity:", err)
+		suite.T().Fatal("error finding entities:", err)
 	}
 	assert.Equal(suite.T(), 2, len(results))
+}
+
+func (suite *RepoTestSuite) TestSaveAndFindUsingIndex() {
+	index := dynamo.Index{
+		Name:           "testIndex",
+		HashKey:        "FilterableID",
+		HashKeyType:    dynamo.NumberType,
+		RangeKey:       "FilterableSortKey",
+		RangeKeyType:   dynamo.StringType,
+		ProjectionType: dynamodb.ProjectionTypeAll,
+	}
+	if _, err := suite.db.Table(suite.conf.TableName).UpdateTable().CreateIndex(index).OnDemand(true).Run(); err != nil {
+		suite.T().Fatal("could not create index:", err)
+	}
+	defer suite.db.Table(suite.conf.TableName).UpdateTable().DeleteIndex(index.Name).Run()
+
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "testContent", FilterableID: 123, FilterableSortKey: "test"})
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "testContent", FilterableID: 123, FilterableSortKey: "test"})
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "testContent2", FilterableID: 123, FilterableSortKey: "test"})
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "testContent", FilterableID: 456, FilterableSortKey: "test"})
+	_ = suite.repo.Save(context.Background(), &TestModel{ID: uuid.New(), Content: "testContent", FilterableID: 123, FilterableSortKey: "test2"})
+
+	indexInput := IndexInput{
+		IndexName:         index.Name,
+		PartitionKey:      index.HashKey,
+		PartitionKeyValue: 123,
+		SortKey:           index.RangeKey,
+		SortKeyValue:      "test",
+	}
+
+	results, err := suite.repo.FindWithFilterUsingIndex(context.Background(), indexInput, "Content = ?", "testContent")
+	if err != nil {
+		suite.T().Fatal("error finding entities:", err)
+	}
+	assert.Equal(suite.T(), 2, len(results))
+
 }
 
 func (suite *RepoTestSuite) TestRemove() {
 	testModel := &TestModel{ID: uuid.New(), Content: "test"}
 
-	suite.repo.Save(context.Background(), testModel)
+	_ = suite.repo.Save(context.Background(), testModel)
 	err := suite.repo.Remove(context.Background(), testModel.ID)
 	if err != nil {
 		suite.T().Fatal("failed to remove entity:", err)
@@ -166,9 +198,7 @@ func (suite *RepoTestSuite) TestNoFactoryFn() {
 }
 
 func (suite *RepoTestSuite) TestEmptyUUID() {
-	testModel := &TestModel{Content: "test"}
-
-	err := suite.repo.Save(context.Background(), testModel)
+	err := suite.repo.Save(context.Background(), &TestModel{Content: "test"})
 	assert.EqualError(suite.T(), err, "could not save entity: missing entity ID (default)")
 }
 
@@ -178,9 +208,10 @@ func (suite *RepoTestSuite) TestParent() {
 }
 
 type TestModel struct {
-	ID           uuid.UUID `dynamo:",hash"`
-	Content      string
-	FilterableID int
+	ID                uuid.UUID `dynamo:",hash"`
+	Content           string
+	FilterableID      int
+	FilterableSortKey string
 }
 
 // EntityID implements the EntityID method of the eventhorizon.Entity interface.
