@@ -146,6 +146,33 @@ func (r *Repo) FindWithFilter(ctx context.Context, expr string, args ...interfac
 	return result, nil
 }
 
+// FindWithFilterUsingIndex allows to find entities with a filter using an index
+func (r *Repo) FindWithFilterUsingIndex(ctx context.Context, indexInput IndexInput, filterQuery string, filterArgs ...interface{}) ([]eh.Entity, error) {
+	if r.factoryFn == nil {
+		return nil, eh.RepoError{
+			Err:       ErrModelNotSet,
+			Namespace: eh.NamespaceFromContext(ctx),
+		}
+	}
+
+	table := r.service.Table(r.config.TableName)
+
+	iter := table.Get(indexInput.PartitionKey, indexInput.PartitionKeyValue).
+		Range(indexInput.SortKey, dynamo.Equal, indexInput.SortKeyValue).
+		Index(indexInput.IndexName).
+		Filter(filterQuery, filterArgs...).
+		Iter()
+
+	result := []eh.Entity{}
+	entity := r.factoryFn()
+	for iter.Next(entity) {
+		result = append(result, entity)
+		entity = r.factoryFn()
+	}
+
+	return result, nil
+}
+
 // Save implements the Save method of the eventhorizon.WriteRepo interface.
 func (r *Repo) Save(ctx context.Context, entity eh.Entity) error {
 	table := r.service.Table(r.config.TableName)
@@ -187,4 +214,13 @@ func (r *Repo) Remove(ctx context.Context, id uuid.UUID) error {
 // SetEntityFactory sets a factory function that creates concrete entity types.
 func (r *Repo) SetEntityFactory(f func() eh.Entity) {
 	r.factoryFn = f
+}
+
+// IndexInput is all the params we need to filter on an index
+type IndexInput struct {
+	IndexName         string
+	PartitionKey      string
+	PartitionKeyValue interface{}
+	SortKey           string
+	SortKeyValue      interface{}
 }
