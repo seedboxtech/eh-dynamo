@@ -6,6 +6,7 @@ test:
 
 test_docker:
 	docker-compose run --rm golang make test
+	docker-compose down
 .PHONY: test_docker
 
 cover:
@@ -14,6 +15,7 @@ cover:
 
 cover_docker:
 	docker-compose run --rm golang make cover
+	docker-compose down
 .PHONY: cover_docker
 
 publish_cover: cover_docker
