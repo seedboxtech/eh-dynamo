@@ -15,6 +15,3 @@ services:
 
   dynamodb:
     image: amazon/dynamodb-local:latest
-    ports:
-      - "8000:8000"
-    command: ["java", "-jar", "DynamoDBLocal.jar", "-inMemory"]
